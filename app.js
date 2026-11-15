@@ -288,12 +288,14 @@ function renderCard(recipe) {
   const top = el("div", "card-top");
   top.appendChild(el("h2", "card-title", recipe.title));
 
+  const selectWrap = el("label", "card-select-wrap");
+  selectWrap.addEventListener("click", (e) => e.stopPropagation());
+
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.className = "card-select";
   checkbox.checked = isSelected;
   checkbox.ariaLabel = `Vælg ${recipe.title} til print`;
-  checkbox.addEventListener("click", (e) => e.stopPropagation());
   checkbox.addEventListener("change", () => {
     if (checkbox.checked) {
       state.selectedIds.add(recipe.id);
@@ -302,7 +304,8 @@ function renderCard(recipe) {
     }
     renderLibrary();
   });
-  top.appendChild(checkbox);
+  selectWrap.appendChild(checkbox);
+  top.appendChild(selectWrap);
   card.appendChild(top);
 
   if (recipe.tags?.length) {
@@ -520,7 +523,9 @@ function openEditorModal(recipe = null) {
   if (!dom.editorModal.open) {
     dom.editorModal.showModal();
   }
-  dom.fieldTitle.focus();
+  if (!window.matchMedia("(pointer: coarse)").matches) {
+    dom.fieldTitle.focus();
+  }
 }
 
 function setSmartStatus(message, isError = false) {

@@ -51,6 +51,7 @@ body {
 
 .center-screen {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -393,7 +394,7 @@ body {
 
 .recipe-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(270px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -438,13 +439,24 @@ body {
   line-height: 1.25;
 }
 
+.card-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: -6px -8px -6px 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 6px;
+}
+
 .card-select {
   width: 18px;
   height: 18px;
-  margin-top: 3px;
+  margin: 0;
   accent-color: var(--accent);
   cursor: pointer;
-  flex-shrink: 0;
 }
 
 .card-tags {
@@ -505,6 +517,7 @@ body {
 .modal {
   width: min(92vw, 680px);
   max-height: 90vh;
+  max-height: 90dvh;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px 24px;
@@ -599,8 +612,77 @@ body {
 }
 
 @media (max-width: 680px) {
+  .topbar {
+    position: static;
+  }
+
+  .topbar-inner,
+  .tabbar-inner,
+  .filterbar-inner,
+  .library-main {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .modal {
+    width: min(96vw, 680px);
+    padding: 16px;
+  }
+
+  .modal-wide {
+    width: min(96vw, 840px);
+  }
+
+  .modal-toolbar {
+    align-items: flex-start;
+  }
+
+  .smart-paste-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .editor-columns {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (pointer: coarse), (max-width: 680px) {
+  .field input,
+  .field textarea,
+  .search-wrap input,
+  .smart-paste-row textarea {
+    font-size: 16px;
+  }
+
+  .card-select-wrap {
+    width: 44px;
+    height: 44px;
+    margin: -9px -10px -9px 0;
+  }
+
+  .card-select {
+    width: 22px;
+    height: 22px;
+  }
+
+  .btn {
+    min-height: 42px;
+  }
+
+  .btn-sm {
+    min-height: 38px;
+    padding: 7px 12px;
+    font-size: 0.85rem;
+  }
+
+  .btn-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .tag-chip {
+    padding: 7px 12px;
   }
 }
 
