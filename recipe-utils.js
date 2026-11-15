@@ -37,7 +37,7 @@ export function parseTags(text) {
 
 /**
  * Validate and normalize form inputs into a Firestore-ready recipe object (without timestamps).
- * @param {{ title?: string, tags?: string, ingredients?: string, steps?: string, note?: string }} input
+ * @param {{ title?: string, tags?: string, ingredients?: string, steps?: string, note?: string, wantToTry?: boolean }} input
  * @returns {{ ok: true, data: object } | { ok: false, error: string }}
  */
 export function buildRecipePayload(input) {
@@ -60,6 +60,7 @@ export function buildRecipePayload(input) {
       ingredients,
       steps,
       note: typeof input.note === "string" ? input.note.trim() : "",
+      wantToTry: Boolean(input.wantToTry),
     },
   };
 }
@@ -82,15 +83,19 @@ export function collectTags(recipes) {
 }
 
 /**
- * Filter recipes by active tag and search query across title, tags, ingredients, and note.
+ * Filter recipes by optional "want to try" flag, active tag, and search query across title, tags, ingredients, and note.
  * @param {Array<object>} recipes
  * @param {string} query
  * @param {string} activeTag
+ * @param {boolean} onlyWantToTry
  * @returns {Array<object>}
  */
-export function filterRecipes(recipes, query = "", activeTag = "") {
+export function filterRecipes(recipes, query = "", activeTag = "", onlyWantToTry = false) {
   const q = query.trim().toLowerCase();
   return recipes.filter((recipe) => {
+    if (onlyWantToTry && !recipe.wantToTry) {
+      return false;
+    }
     if (activeTag && !(recipe.tags ?? []).includes(activeTag)) {
       return false;
     }
@@ -105,6 +110,56 @@ export function filterRecipes(recipes, query = "", activeTag = "") {
       .toLowerCase();
     return haystack.includes(q);
   });
+}
+
+function toTimestampMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toDate === "function") return value.toDate().getTime();
+  if (typeof value.seconds === "number") return value.seconds * 1000;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/**
+ * Return true when a recipe has been moved to the bin.
+ * @param {object} recipe
+ * @returns {boolean}
+ */
+export function isRecipeDeleted(recipe) {
+  return Boolean(recipe?.deletedAt);
+}
+
+/**
+ * Split recipes into active library items and trashed bin items (newest-deleted first).
+ * @param {Array<object>} recipes
+ * @returns {{ active: Array<object>, trashed: Array<object> }}
+ */
+export function partitionRecipes(recipes) {
+  const active = [];
+  const trashed = [];
+  for (const recipe of recipes) {
+    if (isRecipeDeleted(recipe)) {
+      trashed.push(recipe);
+    } else {
+      active.push(recipe);
+    }
+  }
+  trashed.sort((a, b) => toTimestampMillis(b.deletedAt) - toTimestampMillis(a.deletedAt));
+  return { active, trashed };
+}
+
+/**
+ * Format a Firestore Timestamp or Date for display in the bin.
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function formatBinDate(value) {
+  const ms = toTimestampMillis(value);
+  if (!ms) return "";
+  return new Intl.DateTimeFormat("da-DK", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(ms));
 }
 
 const SECTION_PATTERNS = [

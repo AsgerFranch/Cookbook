@@ -398,6 +398,12 @@ body {
   border-radius: 999px;
 }
 
+.mini-tag-accent {
+  color: var(--accent);
+  background: #f9ebe6;
+  font-weight: 500;
+}
+
 .card-preview {
   margin: 0;
   font-size: 0.85rem;
@@ -531,6 +537,110 @@ body {
   .editor-columns {
     grid-template-columns: 1fr;
   }
+}
+
+/* Bin modal */
+.bin-empty {
+  text-align: center;
+  padding: 28px 12px;
+  margin: 0;
+}
+
+.bin-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.bin-item-info {
+  min-width: 0;
+}
+
+.bin-item-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.bin-item-meta {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+
+.bin-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 540px) {
+  .bin-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Library tabs & editor checkbox */
+.library-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+
+.library-tab {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 12px;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+
+.library-tab:hover {
+  color: var(--ink);
+}
+
+.library-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.checkbox-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.checkbox-field input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 /* Editorial Recipe Sheet (shared between Detail Preview and A4 Print) */

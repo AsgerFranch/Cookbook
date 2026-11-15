@@ -54,6 +54,7 @@
           <button id="btn-new-recipe" type="button" class="btn btn-primary">+ Ny opskrift</button>
           <button id="btn-print-selected" type="button" class="btn btn-secondary" disabled>Print valgte (0)</button>
           <button id="btn-print-filtered" type="button" class="btn btn-secondary" disabled>Print viste</button>
+          <button id="btn-bin" type="button" class="btn btn-ghost">Papirkurv (0)</button>
           <button id="btn-logout" type="button" class="btn btn-ghost" title="">Log ud</button>
         </div>
       </div>
@@ -65,6 +66,10 @@
     </header>
 
     <main class="library-main">
+      <div class="library-tabs" role="tablist" aria-label="Opskriftsfaner">
+        <button id="tab-all" type="button" class="library-tab active" role="tab" aria-selected="true">Alle opskrifter (0)</button>
+        <button id="tab-want-to-try" type="button" class="library-tab" role="tab" aria-selected="false">Vil gerne prøve (0)</button>
+      </div>
       <p id="app-error" class="error-banner" role="alert" hidden></p>
       <div id="recipe-grid" class="recipe-grid"></div>
       <div id="empty-state" class="empty-state" hidden>
@@ -80,11 +85,24 @@
       <div class="modal-actions-left">
         <button id="btn-detail-print" type="button" class="btn btn-primary">Print / Gem PDF (A4)</button>
         <button id="btn-detail-edit" type="button" class="btn btn-secondary">Rediger</button>
-        <button id="btn-detail-delete" type="button" class="btn btn-danger-ghost">Slet</button>
+        <button id="btn-detail-delete" type="button" class="btn btn-danger-ghost">Flyt til papirkurv</button>
       </div>
       <button id="btn-detail-close" type="button" class="btn-icon" aria-label="Luk">×</button>
     </div>
     <div id="detail-sheet-host" class="detail-sheet-host"></div>
+  </dialog>
+
+  <dialog id="bin-modal" class="modal" aria-labelledby="bin-heading">
+    <div class="modal-toolbar">
+      <h2 id="bin-heading" class="modal-title">Papirkurv</h2>
+      <div class="modal-actions-left">
+        <button id="btn-empty-bin" type="button" class="btn btn-danger-ghost" disabled>Tøm papirkurv</button>
+        <button id="btn-bin-close" type="button" class="btn-icon" aria-label="Luk">×</button>
+      </div>
+    </div>
+    <p id="bin-error" class="error-banner" role="alert" hidden></p>
+    <p id="bin-empty" class="muted bin-empty" hidden>Papirkurven er tom.</p>
+    <ul id="bin-list" class="bin-list"></ul>
   </dialog>
 
   <dialog id="editor-modal" class="modal" aria-labelledby="editor-heading">
@@ -138,6 +156,11 @@
       <label class="field">
         <span>Noter <small class="muted">(valgfri)</small></span>
         <textarea id="field-note" rows="2" placeholder="Kort tip, variation eller serveringsforslag"></textarea>
+      </label>
+
+      <label class="checkbox-field">
+        <input id="field-want-to-try" type="checkbox">
+        <span>Vil gerne prøve</span>
       </label>
 
       <p id="editor-error" class="error-banner" role="alert" hidden></p>

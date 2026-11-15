@@ -22,6 +22,8 @@ import {
   collectTags,
   filterRecipes,
   parseSmartRecipe,
+  partitionRecipes,
+  formatBinDate,
 } from "./recipe-utils.js";
 
 const firebaseConfig = {
@@ -44,7 +46,9 @@ const APP_TITLE = "Opskriftsbibliotek";
 const state = {
   user: null,
   recipes: [],
+  binRecipes: [],
   searchQuery: "",
+  activeTab: "all",
   activeTag: "",
   selectedIds: new Set(),
   detailRecipeId: null,
@@ -66,9 +70,12 @@ const dom = {
   btnNewRecipe: document.getElementById("btn-new-recipe"),
   btnPrintSelected: document.getElementById("btn-print-selected"),
   btnPrintFiltered: document.getElementById("btn-print-filtered"),
+  btnBin: document.getElementById("btn-bin"),
   btnLogout: document.getElementById("btn-logout"),
   tagFilters: document.getElementById("tag-filters"),
   btnToggleSelect: document.getElementById("btn-toggle-select"),
+  tabAll: document.getElementById("tab-all"),
+  tabWantToTry: document.getElementById("tab-want-to-try"),
   appError: document.getElementById("app-error"),
   recipeGrid: document.getElementById("recipe-grid"),
   emptyState: document.getElementById("empty-state"),
@@ -80,6 +87,12 @@ const dom = {
   btnDetailEdit: document.getElementById("btn-detail-edit"),
   btnDetailDelete: document.getElementById("btn-detail-delete"),
   btnDetailClose: document.getElementById("btn-detail-close"),
+  binModal: document.getElementById("bin-modal"),
+  btnEmptyBin: document.getElementById("btn-empty-bin"),
+  btnBinClose: document.getElementById("btn-bin-close"),
+  binError: document.getElementById("bin-error"),
+  binEmpty: document.getElementById("bin-empty"),
+  binList: document.getElementById("bin-list"),
   editorModal: document.getElementById("editor-modal"),
   editorHeading: document.getElementById("editor-heading"),
   smartPasteWrap: document.getElementById("smart-paste-wrap"),
@@ -94,6 +107,7 @@ const dom = {
   fieldIngredients: document.getElementById("field-ingredients"),
   fieldSteps: document.getElementById("field-steps"),
   fieldNote: document.getElementById("field-note"),
+  fieldWantToTry: document.getElementById("field-want-to-try"),
   editorError: document.getElementById("editor-error"),
   btnSaveRecipe: document.getElementById("btn-save-recipe"),
   printContainer: document.getElementById("print-container"),
@@ -140,8 +154,23 @@ function userRecipesCollection() {
   return collection(db, "users", state.user.uid, "recipes");
 }
 
+function recipeDocRef(recipeId) {
+  return doc(db, "users", state.user.uid, "recipes", recipeId);
+}
+
+function getTabRecipes() {
+  return state.activeTab === "wantToTry"
+    ? state.recipes.filter((r) => Boolean(r.wantToTry))
+    : state.recipes;
+}
+
 function getFilteredRecipes() {
-  return filterRecipes(state.recipes, state.searchQuery, state.activeTag);
+  return filterRecipes(
+    state.recipes,
+    state.searchQuery,
+    state.activeTag,
+    state.activeTab === "wantToTry"
+  );
 }
 
 /**
@@ -193,19 +222,32 @@ function createRecipeSheet(recipe) {
   return sheet;
 }
 
+function renderTabs() {
+  const wantToTryCount = state.recipes.filter((r) => Boolean(r.wantToTry)).length;
+  dom.tabAll.textContent = `Alle opskrifter (${state.recipes.length})`;
+  dom.tabWantToTry.textContent = `Vil gerne prøve (${wantToTryCount})`;
+
+  const isWant = state.activeTab === "wantToTry";
+  dom.tabAll.classList.toggle("active", !isWant);
+  dom.tabAll.setAttribute("aria-selected", String(!isWant));
+  dom.tabWantToTry.classList.toggle("active", isWant);
+  dom.tabWantToTry.setAttribute("aria-selected", String(isWant));
+}
+
 function renderTags() {
-  const tagCounts = collectTags(state.recipes);
+  const tabRecipes = getTabRecipes();
+  const tagCounts = collectTags(tabRecipes);
   if (state.activeTag && !tagCounts.some((t) => t.tag === state.activeTag)) {
     state.activeTag = "";
   }
 
   dom.tagFilters.replaceChildren();
-  if (state.recipes.length === 0) return;
+  if (tabRecipes.length === 0) return;
 
   const allChip = el(
     "button",
     `tag-chip${state.activeTag === "" ? " active" : ""}`,
-    `Alle (${state.recipes.length})`
+    `Alle (${tabRecipes.length})`
   );
   allChip.type = "button";
   allChip.addEventListener("click", () => {
@@ -254,9 +296,12 @@ function renderCard(recipe) {
   top.appendChild(checkbox);
   card.appendChild(top);
 
-  if (recipe.tags?.length) {
+  if (recipe.wantToTry || recipe.tags?.length) {
     const tagsWrap = el("div", "card-tags");
-    for (const tag of recipe.tags) {
+    if (recipe.wantToTry) {
+      tagsWrap.appendChild(el("span", "mini-tag mini-tag-accent", "Vil gerne prøve"));
+    }
+    for (const tag of recipe.tags ?? []) {
       tagsWrap.appendChild(el("span", "mini-tag", tag));
     }
     card.appendChild(tagsWrap);
@@ -292,6 +337,7 @@ function renderCard(recipe) {
 }
 
 function renderLibrary() {
+  renderTabs();
   renderTags();
 
   const filtered = getFilteredRecipes();
@@ -315,9 +361,14 @@ function renderLibrary() {
   if (filtered.length === 0) {
     dom.emptyState.hidden = false;
     const hasAny = state.recipes.length > 0;
-    dom.emptyMessage.textContent = hasAny
-      ? "Ingen opskrifter matcher din søgning."
-      : "Dit opskriftsbibliotek er tomt endnu.";
+    const hasInTab = getTabRecipes().length > 0;
+    if (state.activeTab === "wantToTry" && !hasInTab) {
+      dom.emptyMessage.textContent = "Ingen opskrifter markeret med \"Vil gerne prøve\" endnu.";
+    } else if (hasAny) {
+      dom.emptyMessage.textContent = "Ingen opskrifter matcher din søgning.";
+    } else {
+      dom.emptyMessage.textContent = "Dit opskriftsbibliotek er tomt endnu.";
+    }
     dom.btnEmptyNew.hidden = hasAny;
     return;
   }
@@ -325,6 +376,75 @@ function renderLibrary() {
   dom.emptyState.hidden = true;
   for (const recipe of filtered) {
     dom.recipeGrid.appendChild(renderCard(recipe));
+  }
+}
+
+async function restoreRecipe(recipe, triggerBtn) {
+  if (!recipe?.deletedAt) return;
+  setBanner(dom.binError, "");
+  triggerBtn.disabled = true;
+  try {
+    await updateDoc(recipeDocRef(recipe.id), {
+      deletedAt: null,
+      replacedBy: null,
+    });
+  } catch (error) {
+    setBanner(dom.binError, mapFirebaseError(error));
+    triggerBtn.disabled = false;
+  }
+}
+
+async function deleteFromBin(recipesToDelete, triggerBtn = null) {
+  // Guard: never permanently delete active recipes that are not in the bin.
+  const targets = recipesToDelete.filter((r) => Boolean(r.deletedAt));
+  if (!targets.length) return;
+  setBanner(dom.binError, "");
+  if (triggerBtn) triggerBtn.disabled = true;
+  try {
+    await Promise.all(targets.map((r) => deleteDoc(recipeDocRef(r.id))));
+  } catch (error) {
+    setBanner(dom.binError, mapFirebaseError(error));
+  } finally {
+    if (triggerBtn) {
+      triggerBtn.disabled = triggerBtn === dom.btnEmptyBin ? state.binRecipes.length === 0 : false;
+    }
+  }
+}
+
+function renderBin() {
+  const count = state.binRecipes.length;
+  dom.btnBin.textContent = `Papirkurv (${count})`;
+  dom.btnEmptyBin.disabled = count === 0;
+  dom.binEmpty.hidden = count > 0;
+  dom.binList.replaceChildren();
+
+  for (const recipe of state.binRecipes) {
+    const item = el("li", "bin-item");
+    const info = el("div", "bin-item-info");
+    info.appendChild(el("p", "bin-item-title", recipe.title));
+
+    const dateText = formatBinDate(recipe.deletedAt);
+    const label = recipe.replacedBy ? "Tidligere version" : "Slettet";
+    info.appendChild(el("p", "bin-item-meta", dateText ? `${label} · ${dateText}` : label));
+    item.appendChild(info);
+
+    const actions = el("div", "bin-item-actions");
+    const restoreBtn = el("button", "btn btn-secondary btn-sm", "Gendan");
+    restoreBtn.type = "button";
+    restoreBtn.addEventListener("click", () => restoreRecipe(recipe, restoreBtn));
+
+    const purgeBtn = el("button", "btn btn-danger-ghost btn-sm", "Slet permanent");
+    purgeBtn.type = "button";
+    purgeBtn.addEventListener("click", () => {
+      if (!window.confirm(`Slet "${recipe.title}" permanent fra databasen? Dette kan ikke fortrydes.`)) {
+        return;
+      }
+      deleteFromBin([recipe], purgeBtn);
+    });
+
+    actions.append(restoreBtn, purgeBtn);
+    item.appendChild(actions);
+    dom.binList.appendChild(item);
   }
 }
 
@@ -351,6 +471,7 @@ function openEditorModal(recipe = null) {
   dom.fieldIngredients.value = (recipe?.ingredients ?? []).join("\n");
   dom.fieldSteps.value = (recipe?.steps ?? []).join("\n");
   dom.fieldNote.value = recipe?.note ?? "";
+  dom.fieldWantToTry.checked = recipe ? Boolean(recipe.wantToTry) : state.activeTab === "wantToTry";
 
   if (!dom.editorModal.open) {
     dom.editorModal.showModal();
@@ -399,7 +520,10 @@ function subscribeToRecipes(uid) {
     q,
     (snapshot) => {
       setBanner(dom.appError, "");
-      state.recipes = snapshot.docs.map((snap) => ({ id: snap.id, ...snap.data() }));
+      const allDocs = snapshot.docs.map((snap) => ({ id: snap.id, ...snap.data() }));
+      const { active, trashed } = partitionRecipes(allDocs);
+      state.recipes = active;
+      state.binRecipes = trashed;
 
       const validIds = new Set(state.recipes.map((r) => r.id));
       for (const id of Array.from(state.selectedIds)) {
@@ -407,6 +531,7 @@ function subscribeToRecipes(uid) {
       }
 
       renderLibrary();
+      renderBin();
 
       if (dom.detailModal.open && state.detailRecipeId) {
         if (validIds.has(state.detailRecipeId)) {
@@ -439,12 +564,16 @@ onAuthStateChanged(auth, (user) => {
       state.unsubscribeRecipes = null;
     }
     state.recipes = [];
+    state.binRecipes = [];
     state.selectedIds.clear();
+    state.activeTab = "all";
     state.activeTag = "";
     state.searchQuery = "";
     dom.searchInput.value = "";
     if (dom.detailModal.open) dom.detailModal.close();
     if (dom.editorModal.open) dom.editorModal.close();
+    if (dom.binModal.open) dom.binModal.close();
+    renderBin();
     dom.appView.hidden = true;
     dom.authView.hidden = false;
     dom.loginPassword.value = "";
@@ -478,6 +607,17 @@ dom.searchInput.addEventListener("input", () => {
 
 dom.btnNewRecipe.addEventListener("click", () => openEditorModal());
 dom.btnEmptyNew.addEventListener("click", () => openEditorModal());
+
+dom.tabAll.addEventListener("click", () => {
+  if (state.activeTab === "all") return;
+  state.activeTab = "all";
+  renderLibrary();
+});
+dom.tabWantToTry.addEventListener("click", () => {
+  if (state.activeTab === "wantToTry") return;
+  state.activeTab = "wantToTry";
+  renderLibrary();
+});
 
 dom.btnToggleSelect.addEventListener("click", () => {
   const filtered = getFilteredRecipes();
@@ -515,13 +655,36 @@ dom.btnDetailEdit.addEventListener("click", () => {
 });
 dom.btnDetailDelete.addEventListener("click", async () => {
   const recipe = state.recipes.find((r) => r.id === state.detailRecipeId);
-  if (!recipe || !window.confirm(`Slet opskriften "${recipe.title}"?`)) return;
+  if (!recipe || !window.confirm(`Flyt "${recipe.title}" til papirkurven?`)) return;
   try {
-    await deleteDoc(doc(db, "users", state.user.uid, "recipes", recipe.id));
+    await updateDoc(recipeDocRef(recipe.id), {
+      deletedAt: serverTimestamp(),
+      replacedBy: null,
+    });
     dom.detailModal.close();
   } catch (error) {
     setBanner(dom.appError, mapFirebaseError(error));
   }
+});
+
+// Bin modal events
+dom.btnBin.addEventListener("click", () => {
+  setBanner(dom.binError, "");
+  renderBin();
+  if (!dom.binModal.open) dom.binModal.showModal();
+});
+dom.btnBinClose.addEventListener("click", () => dom.binModal.close());
+dom.btnEmptyBin.addEventListener("click", () => {
+  const count = state.binRecipes.length;
+  if (!count) return;
+  if (
+    !window.confirm(
+      `Tøm papirkurven og slet ${count} opskrift${count === 1 ? "" : "er"} permanent fra databasen? Dette kan ikke fortrydes.`
+    )
+  ) {
+    return;
+  }
+  deleteFromBin(state.binRecipes, dom.btnEmptyBin);
 });
 
 // Editor modal events
@@ -573,6 +736,7 @@ dom.recipeForm.addEventListener("submit", async (e) => {
     ingredients: dom.fieldIngredients.value,
     steps: dom.fieldSteps.value,
     note: dom.fieldNote.value,
+    wantToTry: dom.fieldWantToTry.checked,
   });
 
   if (!result.ok) {
@@ -581,29 +745,41 @@ dom.recipeForm.addEventListener("submit", async (e) => {
   }
 
   dom.btnSaveRecipe.disabled = true;
+  let createdNewDoc = false;
   try {
+    const payload = {
+      ...result.data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      deletedAt: null,
+    };
     if (state.editingRecipeId) {
-      await updateDoc(doc(db, "users", state.user.uid, "recipes", state.editingRecipeId), {
-        ...result.data,
-        updatedAt: serverTimestamp(),
+      const previousId = state.editingRecipeId;
+      const newDocRef = await addDoc(userRecipesCollection(), payload);
+      createdNewDoc = true;
+      state.editingRecipeId = null;
+      await updateDoc(recipeDocRef(previousId), {
+        deletedAt: serverTimestamp(),
+        replacedBy: newDocRef.id,
       });
     } else {
-      await addDoc(userRecipesCollection(), {
-        ...result.data,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      await addDoc(userRecipesCollection(), payload);
     }
     dom.editorModal.close();
   } catch (error) {
-    setBanner(dom.editorError, mapFirebaseError(error));
+    if (createdNewDoc) {
+      dom.editorModal.close();
+      setBanner(dom.appError, mapFirebaseError(error));
+    } else {
+      setBanner(dom.editorError, mapFirebaseError(error));
+    }
   } finally {
     dom.btnSaveRecipe.disabled = false;
   }
 });
 
 // Close dialogs on backdrop click
-for (const dialog of [dom.detailModal, dom.editorModal]) {
+for (const dialog of [dom.detailModal, dom.editorModal, dom.binModal]) {
   dialog.addEventListener("click", (e) => {
     if (e.target === dialog) dialog.close();
   });
@@ -616,6 +792,7 @@ document.addEventListener("keydown", (e) => {
     !dom.appView.hidden &&
     !dom.detailModal.open &&
     !dom.editorModal.open &&
+    !dom.binModal.open &&
     !["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)
   ) {
     e.preventDefault();
