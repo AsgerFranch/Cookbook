@@ -6,6 +6,7 @@ import {
   buildRecipePayload,
   collectTags,
   filterRecipes,
+  filterRecipesByTab,
   parseSmartRecipe,
   isRecipeDeleted,
   partitionRecipes,
@@ -97,7 +98,19 @@ test("collectTags and filterRecipes filter by tag, query, and wantToTry", () => 
     ["1"]
   );
   assert.deepEqual(
-    filterRecipes(recipes, "", "", true).map((r) => r.id),
+    filterRecipes(recipes, "", "", "wantToTry").map((r) => r.id),
+    ["2", "3"]
+  );
+  assert.deepEqual(
+    filterRecipes(recipes, "", "", "permanent").map((r) => r.id),
+    ["1"]
+  );
+  assert.deepEqual(
+    filterRecipesByTab(recipes, "permanent").map((r) => r.id),
+    ["1"]
+  );
+  assert.deepEqual(
+    filterRecipesByTab(recipes, "wantToTry").map((r) => r.id),
     ["2", "3"]
   );
 });

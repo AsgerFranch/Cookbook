@@ -83,19 +83,30 @@ export function collectTags(recipes) {
 }
 
 /**
- * Filter recipes by optional "want to try" flag, active tag, and search query across title, tags, ingredients, and note.
+ * Split active recipes into permanent ("Opskrifter") and try-list ("Vil gerne prøve") tabs.
+ * @param {Array<object>} recipes
+ * @param {"permanent" | "wantToTry" | "all"} tab
+ * @returns {Array<object>}
+ */
+export function filterRecipesByTab(recipes, tab = "permanent") {
+  if (tab === "all") return recipes;
+  return recipes.filter((recipe) =>
+    tab === "wantToTry" ? Boolean(recipe?.wantToTry) : !recipe?.wantToTry
+  );
+}
+
+/**
+ * Filter recipes by tab mode ("all", "permanent", or "wantToTry"), active tag, and search query.
  * @param {Array<object>} recipes
  * @param {string} query
  * @param {string} activeTag
- * @param {boolean} onlyWantToTry
+ * @param {"all" | "permanent" | "wantToTry" | boolean} mode
  * @returns {Array<object>}
  */
-export function filterRecipes(recipes, query = "", activeTag = "", onlyWantToTry = false) {
+export function filterRecipes(recipes, query = "", activeTag = "", mode = "all") {
   const q = query.trim().toLowerCase();
-  return recipes.filter((recipe) => {
-    if (onlyWantToTry && !recipe.wantToTry) {
-      return false;
-    }
+  const normalizedMode = mode === true ? "wantToTry" : mode === false ? "all" : mode;
+  return filterRecipesByTab(recipes, normalizedMode).filter((recipe) => {
     if (activeTag && !(recipe.tags ?? []).includes(activeTag)) {
       return false;
     }

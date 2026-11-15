@@ -59,17 +59,24 @@
         </div>
       </div>
 
-      <div class="filterbar-inner">
+      <div class="tabbar-inner">
+        <div class="view-tabs" role="tablist" aria-label="Opskriftsfaner">
+          <button id="tab-all" type="button" class="view-tab active" role="tab" aria-selected="true">
+            Opskrifter <span id="tab-all-count" class="view-tab-count">0</span>
+          </button>
+          <button id="tab-want-to-try" type="button" class="view-tab view-tab-want" role="tab" aria-selected="false">
+            Vil gerne prøve <span id="tab-want-count" class="view-tab-count">0</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="filterbar" class="filterbar-inner">
         <div id="tag-filters" class="tag-filters" aria-label="Filtrér efter tag"></div>
         <button id="btn-toggle-select" type="button" class="btn-link" hidden>Vælg alle</button>
       </div>
     </header>
 
     <main class="library-main">
-      <div class="library-tabs" role="tablist" aria-label="Opskriftsfaner">
-        <button id="tab-all" type="button" class="library-tab active" role="tab" aria-selected="true">Alle opskrifter (0)</button>
-        <button id="tab-want-to-try" type="button" class="library-tab" role="tab" aria-selected="false">Vil gerne prøve (0)</button>
-      </div>
       <p id="app-error" class="error-banner" role="alert" hidden></p>
       <div id="recipe-grid" class="recipe-grid"></div>
       <div id="empty-state" class="empty-state" hidden>
@@ -84,6 +91,7 @@
       <span id="detail-modal-title" class="sr-only">Opskriftsvisning</span>
       <div class="modal-actions-left">
         <button id="btn-detail-print" type="button" class="btn btn-primary">Print / Gem PDF (A4)</button>
+        <button id="btn-detail-promote" type="button" class="btn btn-secondary" hidden>Gør til permanent opskrift</button>
         <button id="btn-detail-edit" type="button" class="btn btn-secondary">Rediger</button>
         <button id="btn-detail-delete" type="button" class="btn btn-danger-ghost">Flyt til papirkurv</button>
       </div>
@@ -123,6 +131,20 @@
       <p id="smart-paste-status" class="smart-paste-status" hidden></p>
     </div>
     <form id="recipe-form" class="stack-md">
+      <fieldset class="kind-fieldset">
+        <legend class="kind-legend">Gem under</legend>
+        <div class="kind-segmented">
+          <label class="kind-option">
+            <input id="field-permanent" type="radio" name="recipe-kind" value="permanent" checked>
+            <span>Permanent opskrift</span>
+          </label>
+          <label class="kind-option">
+            <input id="field-want-to-try" type="radio" name="recipe-kind" value="wantToTry">
+            <span>Vil gerne prøve</span>
+          </label>
+        </div>
+      </fieldset>
+
       <label class="field">
         <span>Titel</span>
         <input id="field-title" type="text" required placeholder="fx Pasta Carbonara">
@@ -156,11 +178,6 @@
       <label class="field">
         <span>Noter <small class="muted">(valgfri)</small></span>
         <textarea id="field-note" rows="2" placeholder="Kort tip, variation eller serveringsforslag"></textarea>
-      </label>
-
-      <label class="checkbox-field">
-        <input id="field-want-to-try" type="checkbox">
-        <span>Vil gerne prøve</span>
       </label>
 
       <p id="editor-error" class="error-banner" role="alert" hidden></p>

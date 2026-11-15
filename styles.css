@@ -241,6 +241,7 @@ body {
 }
 
 .topbar-inner,
+.tabbar-inner,
 .filterbar-inner,
 .library-main {
   max-width: 1120px;
@@ -285,8 +286,66 @@ body {
   gap: 8px;
 }
 
+.tabbar-inner {
+  padding-top: 2px;
+  padding-bottom: 10px;
+}
+
+.view-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.view-tab:hover {
+  color: var(--ink);
+}
+
+.view-tab.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(28, 25, 23, 0.08);
+}
+
+.view-tab-want.active {
+  color: var(--accent);
+}
+
+.view-tab-count {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  background: rgba(28, 25, 23, 0.06);
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+.view-tab-want.active .view-tab-count {
+  color: var(--accent);
+  background: #f9ebe6;
+}
+
 .filterbar-inner {
-  padding-top: 4px;
+  padding-top: 2px;
   padding-bottom: 12px;
   display: flex;
   align-items: center;
@@ -360,6 +419,10 @@ body {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+.recipe-card.is-want-to-try {
+  border-left: 3px solid var(--accent);
+}
+
 .card-top {
   display: flex;
   align-items: flex-start;
@@ -398,12 +461,6 @@ body {
   border-radius: 999px;
 }
 
-.mini-tag-accent {
-  color: var(--accent);
-  background: #f9ebe6;
-  font-weight: 500;
-}
-
 .card-preview {
   margin: 0;
   font-size: 0.85rem;
@@ -419,11 +476,19 @@ body {
   padding-top: 8px;
   border-top: 1px solid var(--surface-muted);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   font-size: 0.8rem;
   color: var(--ink-muted);
+}
+
+.card-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
 .empty-state {
@@ -597,50 +662,64 @@ body {
   }
 }
 
-/* Library tabs & editor checkbox */
-.library-tabs {
-  display: flex;
-  gap: 6px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 18px;
+/* Editor kind selector */
+.kind-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
 }
 
-.library-tab {
-  font: inherit;
-  font-size: 0.9rem;
+.kind-legend {
+  font-size: 0.88rem;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.kind-segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.kind-option {
+  position: relative;
+  cursor: pointer;
+}
+
+.kind-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.kind-option span {
+  display: block;
+  text-align: center;
+  font-size: 0.86rem;
   font-weight: 500;
   color: var(--ink-muted);
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  padding: 8px 12px;
-  margin-bottom: -1px;
-  cursor: pointer;
+  padding: 7px 10px;
+  border-radius: 7px;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.library-tab:hover {
+.kind-option input:checked + span {
+  background: var(--surface);
   color: var(--ink);
+  box-shadow: 0 1px 3px rgba(28, 25, 23, 0.08);
 }
 
-.library-tab.active {
+.kind-option input[value="wantToTry"]:checked + span {
   color: var(--accent);
-  border-bottom-color: var(--accent);
 }
 
-.checkbox-field {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.checkbox-field input {
-  width: 17px;
-  height: 17px;
-  accent-color: var(--accent);
-  cursor: pointer;
+.kind-option input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 /* Editorial Recipe Sheet (shared between Detail Preview and A4 Print) */

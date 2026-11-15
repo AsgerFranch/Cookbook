@@ -21,6 +21,7 @@ import {
   buildRecipePayload,
   collectTags,
   filterRecipes,
+  filterRecipesByTab,
   parseSmartRecipe,
   partitionRecipes,
   formatBinDate,
@@ -48,7 +49,7 @@ const state = {
   recipes: [],
   binRecipes: [],
   searchQuery: "",
-  activeTab: "all",
+  activeTab: "permanent",
   activeTag: "",
   selectedIds: new Set(),
   detailRecipeId: null,
@@ -72,10 +73,13 @@ const dom = {
   btnPrintFiltered: document.getElementById("btn-print-filtered"),
   btnBin: document.getElementById("btn-bin"),
   btnLogout: document.getElementById("btn-logout"),
+  filterbar: document.getElementById("filterbar"),
   tagFilters: document.getElementById("tag-filters"),
   btnToggleSelect: document.getElementById("btn-toggle-select"),
   tabAll: document.getElementById("tab-all"),
+  tabAllCount: document.getElementById("tab-all-count"),
   tabWantToTry: document.getElementById("tab-want-to-try"),
+  tabWantCount: document.getElementById("tab-want-count"),
   appError: document.getElementById("app-error"),
   recipeGrid: document.getElementById("recipe-grid"),
   emptyState: document.getElementById("empty-state"),
@@ -84,6 +88,7 @@ const dom = {
   detailModal: document.getElementById("detail-modal"),
   detailSheetHost: document.getElementById("detail-sheet-host"),
   btnDetailPrint: document.getElementById("btn-detail-print"),
+  btnDetailPromote: document.getElementById("btn-detail-promote"),
   btnDetailEdit: document.getElementById("btn-detail-edit"),
   btnDetailDelete: document.getElementById("btn-detail-delete"),
   btnDetailClose: document.getElementById("btn-detail-close"),
@@ -107,6 +112,7 @@ const dom = {
   fieldIngredients: document.getElementById("field-ingredients"),
   fieldSteps: document.getElementById("field-steps"),
   fieldNote: document.getElementById("field-note"),
+  fieldPermanent: document.getElementById("field-permanent"),
   fieldWantToTry: document.getElementById("field-want-to-try"),
   editorError: document.getElementById("editor-error"),
   btnSaveRecipe: document.getElementById("btn-save-recipe"),
@@ -159,9 +165,7 @@ function recipeDocRef(recipeId) {
 }
 
 function getTabRecipes() {
-  return state.activeTab === "wantToTry"
-    ? state.recipes.filter((r) => Boolean(r.wantToTry))
-    : state.recipes;
+  return filterRecipesByTab(state.recipes, state.activeTab);
 }
 
 function getFilteredRecipes() {
@@ -169,7 +173,7 @@ function getFilteredRecipes() {
     state.recipes,
     state.searchQuery,
     state.activeTag,
-    state.activeTab === "wantToTry"
+    state.activeTab
   );
 }
 
@@ -223,9 +227,10 @@ function createRecipeSheet(recipe) {
 }
 
 function renderTabs() {
-  const wantToTryCount = state.recipes.filter((r) => Boolean(r.wantToTry)).length;
-  dom.tabAll.textContent = `Alle opskrifter (${state.recipes.length})`;
-  dom.tabWantToTry.textContent = `Vil gerne prøve (${wantToTryCount})`;
+  const permanentCount = filterRecipesByTab(state.recipes, "permanent").length;
+  const wantToTryCount = filterRecipesByTab(state.recipes, "wantToTry").length;
+  dom.tabAllCount.textContent = String(permanentCount);
+  dom.tabWantCount.textContent = String(wantToTryCount);
 
   const isWant = state.activeTab === "wantToTry";
   dom.tabAll.classList.toggle("active", !isWant);
@@ -242,6 +247,7 @@ function renderTags() {
   }
 
   dom.tagFilters.replaceChildren();
+  dom.filterbar.hidden = tabRecipes.length === 0;
   if (tabRecipes.length === 0) return;
 
   const allChip = el(
@@ -273,7 +279,10 @@ function renderTags() {
 
 function renderCard(recipe) {
   const isSelected = state.selectedIds.has(recipe.id);
-  const card = el("article", `recipe-card${isSelected ? " selected" : ""}`);
+  const card = el(
+    "article",
+    `recipe-card${isSelected ? " selected" : ""}${recipe.wantToTry ? " is-want-to-try" : ""}`
+  );
   card.tabIndex = 0;
 
   const top = el("div", "card-top");
@@ -296,12 +305,9 @@ function renderCard(recipe) {
   top.appendChild(checkbox);
   card.appendChild(top);
 
-  if (recipe.wantToTry || recipe.tags?.length) {
+  if (recipe.tags?.length) {
     const tagsWrap = el("div", "card-tags");
-    if (recipe.wantToTry) {
-      tagsWrap.appendChild(el("span", "mini-tag mini-tag-accent", "Vil gerne prøve"));
-    }
-    for (const tag of recipe.tags ?? []) {
+    for (const tag of recipe.tags) {
       tagsWrap.appendChild(el("span", "mini-tag", tag));
     }
     card.appendChild(tagsWrap);
@@ -315,13 +321,25 @@ function renderCard(recipe) {
   const countsText = `${recipe.ingredients?.length ?? 0} ingr. · ${recipe.steps?.length ?? 0} trin`;
   footer.appendChild(el("span", "", countsText));
 
+  const footerActions = el("div", "card-footer-actions");
+  if (recipe.wantToTry) {
+    const promoteBtn = el("button", "btn btn-primary btn-sm", "Gør permanent");
+    promoteBtn.type = "button";
+    promoteBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      promoteToPermanent(recipe, promoteBtn);
+    });
+    footerActions.appendChild(promoteBtn);
+  }
+
   const printBtn = el("button", "btn btn-secondary btn-sm", "Print A4");
   printBtn.type = "button";
   printBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     printRecipes([recipe]);
   });
-  footer.appendChild(printBtn);
+  footerActions.appendChild(printBtn);
+  footer.appendChild(footerActions);
   card.appendChild(footer);
 
   const openDetail = () => openDetailModal(recipe.id);
@@ -360,22 +378,44 @@ function renderLibrary() {
 
   if (filtered.length === 0) {
     dom.emptyState.hidden = false;
-    const hasAny = state.recipes.length > 0;
     const hasInTab = getTabRecipes().length > 0;
-    if (state.activeTab === "wantToTry" && !hasInTab) {
-      dom.emptyMessage.textContent = "Ingen opskrifter markeret med \"Vil gerne prøve\" endnu.";
-    } else if (hasAny) {
-      dom.emptyMessage.textContent = "Ingen opskrifter matcher din søgning.";
+    if (state.activeTab === "wantToTry") {
+      dom.emptyMessage.textContent = hasInTab
+        ? "Ingen opskrifter under \"Vil gerne prøve\" matcher din søgning."
+        : "Du har ingen opskrifter under \"Vil gerne prøve\" endnu.";
+      dom.btnEmptyNew.textContent = "+ Tilføj til Vil gerne prøve";
     } else {
-      dom.emptyMessage.textContent = "Dit opskriftsbibliotek er tomt endnu.";
+      dom.emptyMessage.textContent = hasInTab
+        ? "Ingen opskrifter matcher din søgning."
+        : "Du har ingen permanente opskrifter endnu.";
+      dom.btnEmptyNew.textContent =
+        state.recipes.length === 0 ? "+ Tilføj din første opskrift" : "+ Ny permanent opskrift";
     }
-    dom.btnEmptyNew.hidden = hasAny;
+    dom.btnEmptyNew.hidden = hasInTab;
     return;
   }
 
   dom.emptyState.hidden = true;
   for (const recipe of filtered) {
     dom.recipeGrid.appendChild(renderCard(recipe));
+  }
+}
+
+async function promoteToPermanent(recipe, triggerBtn = null) {
+  if (!recipe?.wantToTry || recipe.deletedAt) return;
+  setBanner(dom.appError, "");
+  if (triggerBtn) triggerBtn.disabled = true;
+  try {
+    await updateDoc(recipeDocRef(recipe.id), {
+      wantToTry: false,
+      updatedAt: serverTimestamp(),
+    });
+    if (triggerBtn === dom.btnDetailPromote && dom.detailModal.open) {
+      dom.detailModal.close();
+    }
+  } catch (error) {
+    setBanner(dom.appError, mapFirebaseError(error));
+    if (triggerBtn) triggerBtn.disabled = false;
   }
 }
 
@@ -452,6 +492,8 @@ function openDetailModal(recipeId) {
   const recipe = state.recipes.find((r) => r.id === recipeId);
   if (!recipe) return;
   state.detailRecipeId = recipeId;
+  dom.btnDetailPromote.disabled = false;
+  dom.btnDetailPromote.hidden = !recipe.wantToTry;
   dom.detailSheetHost.replaceChildren(createRecipeSheet(recipe));
   if (!dom.detailModal.open) {
     dom.detailModal.showModal();
@@ -471,7 +513,9 @@ function openEditorModal(recipe = null) {
   dom.fieldIngredients.value = (recipe?.ingredients ?? []).join("\n");
   dom.fieldSteps.value = (recipe?.steps ?? []).join("\n");
   dom.fieldNote.value = recipe?.note ?? "";
-  dom.fieldWantToTry.checked = recipe ? Boolean(recipe.wantToTry) : state.activeTab === "wantToTry";
+  const isWantToTry = recipe ? Boolean(recipe.wantToTry) : state.activeTab === "wantToTry";
+  dom.fieldWantToTry.checked = isWantToTry;
+  dom.fieldPermanent.checked = !isWantToTry;
 
   if (!dom.editorModal.open) {
     dom.editorModal.showModal();
@@ -566,7 +610,7 @@ onAuthStateChanged(auth, (user) => {
     state.recipes = [];
     state.binRecipes = [];
     state.selectedIds.clear();
-    state.activeTab = "all";
+    state.activeTab = "permanent";
     state.activeTag = "";
     state.searchQuery = "";
     dom.searchInput.value = "";
@@ -609,13 +653,15 @@ dom.btnNewRecipe.addEventListener("click", () => openEditorModal());
 dom.btnEmptyNew.addEventListener("click", () => openEditorModal());
 
 dom.tabAll.addEventListener("click", () => {
-  if (state.activeTab === "all") return;
-  state.activeTab = "all";
+  if (state.activeTab === "permanent") return;
+  state.activeTab = "permanent";
+  state.activeTag = "";
   renderLibrary();
 });
 dom.tabWantToTry.addEventListener("click", () => {
   if (state.activeTab === "wantToTry") return;
   state.activeTab = "wantToTry";
+  state.activeTag = "";
   renderLibrary();
 });
 
@@ -646,6 +692,10 @@ dom.btnDetailClose.addEventListener("click", () => dom.detailModal.close());
 dom.btnDetailPrint.addEventListener("click", () => {
   const recipe = state.recipes.find((r) => r.id === state.detailRecipeId);
   if (recipe) printRecipes([recipe]);
+});
+dom.btnDetailPromote.addEventListener("click", () => {
+  const recipe = state.recipes.find((r) => r.id === state.detailRecipeId);
+  if (recipe) promoteToPermanent(recipe, dom.btnDetailPromote);
 });
 dom.btnDetailEdit.addEventListener("click", () => {
   const recipe = state.recipes.find((r) => r.id === state.detailRecipeId);
@@ -765,6 +815,9 @@ dom.recipeForm.addEventListener("submit", async (e) => {
     } else {
       await addDoc(userRecipesCollection(), payload);
     }
+    state.activeTab = result.data.wantToTry ? "wantToTry" : "permanent";
+    state.activeTag = "";
+    renderLibrary();
     dom.editorModal.close();
   } catch (error) {
     if (createdNewDoc) {
