@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Opskriftsbibliotek</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="loading-view" class="center-screen">
+    <p class="muted">Indlæser opskriftsbibliotek...</p>
+  </div>
+
+  <main id="auth-view" class="center-screen" hidden>
+    <section class="auth-card">
+      <h1 class="brand-title">Opskriftsbibliotek</h1>
+      <p class="muted auth-subtitle">Log ind for at se og udskrive dine opskrifter.</p>
+      <form id="login-form" class="stack-md">
+        <label class="field">
+          <span>E-mail</span>
+          <input id="login-email" type="email" autocomplete="email" required placeholder="dig@eksempel.dk">
+        </label>
+        <label class="field">
+          <span>Adgangskode</span>
+          <input id="login-password" type="password" autocomplete="current-password" required placeholder="••••••••">
+        </label>
+        <p id="auth-error" class="error-banner" role="alert" hidden></p>
+        <button id="btn-login" type="submit" class="btn btn-primary btn-full">Log ind</button>
+      </form>
+    </section>
+  </main>
+
+  <div id="app-view" hidden>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand-group">
+          <h1 class="brand-title">Opskriftsbibliotek</h1>
+          <span id="recipe-count" class="count-pill">0</span>
+        </div>
+
+        <div class="search-wrap">
+          <input
+            id="search-input"
+            type="search"
+            placeholder="Søg efter titel, ingrediens eller tag..."
+            aria-label="Søg i opskrifter"
+          >
+        </div>
+
+        <div class="topbar-actions">
+          <button id="btn-new-recipe" type="button" class="btn btn-primary">+ Ny opskrift</button>
+          <button id="btn-print-selected" type="button" class="btn btn-secondary" disabled>Print valgte (0)</button>
+          <button id="btn-print-filtered" type="button" class="btn btn-secondary" disabled>Print viste</button>
+          <button id="btn-logout" type="button" class="btn btn-ghost" title="">Log ud</button>
+        </div>
+      </div>
+
+      <div class="filterbar-inner">
+        <div id="tag-filters" class="tag-filters" aria-label="Filtrér efter tag"></div>
+        <button id="btn-toggle-select" type="button" class="btn-link" hidden>Vælg alle</button>
+      </div>
+    </header>
+
+    <main class="library-main">
+      <p id="app-error" class="error-banner" role="alert" hidden></p>
+      <div id="recipe-grid" class="recipe-grid"></div>
+      <div id="empty-state" class="empty-state" hidden>
+        <p id="empty-message"></p>
+        <button id="btn-empty-new" type="button" class="btn btn-primary">+ Tilføj din første opskrift</button>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="detail-modal" class="modal modal-wide" aria-labelledby="detail-modal-title">
+    <div class="modal-toolbar">
+      <span id="detail-modal-title" class="sr-only">Opskriftsvisning</span>
+      <div class="modal-actions-left">
+        <button id="btn-detail-print" type="button" class="btn btn-primary">Print / Gem PDF (A4)</button>
+        <button id="btn-detail-edit" type="button" class="btn btn-secondary">Rediger</button>
+        <button id="btn-detail-delete" type="button" class="btn btn-danger-ghost">Slet</button>
+      </div>
+      <button id="btn-detail-close" type="button" class="btn-icon" aria-label="Luk">×</button>
+    </div>
+    <div id="detail-sheet-host" class="detail-sheet-host"></div>
+  </dialog>
+
+  <dialog id="editor-modal" class="modal" aria-labelledby="editor-heading">
+    <div class="modal-toolbar">
+      <h2 id="editor-heading" class="modal-title">Ny opskrift</h2>
+      <button id="btn-editor-close" type="button" class="btn-icon" aria-label="Luk">×</button>
+    </div>
+    <div id="smart-paste-wrap" class="smart-paste-box">
+      <div class="smart-paste-row">
+        <textarea
+          id="smart-paste-input"
+          rows="1"
+          placeholder="Smart indsæt: sæt opskriftblok ind her (Ctrl+V)..."
+          aria-label="Smart indsæt opskrift"
+        ></textarea>
+        <button id="btn-smart-clipboard" type="button" class="btn btn-secondary btn-sm">Fra udklipsholder</button>
+      </div>
+      <p id="smart-paste-status" class="smart-paste-status" hidden></p>
+    </div>
+    <form id="recipe-form" class="stack-md">
+      <label class="field">
+        <span>Titel</span>
+        <input id="field-title" type="text" required placeholder="fx Pasta Carbonara">
+      </label>
+
+      <label class="field">
+        <span>Tags <small class="muted">(kommasepareret)</small></span>
+        <input id="field-tags" type="text" placeholder="fx aftensmad, hurtig, pasta">
+      </label>
+
+      <div class="editor-columns">
+        <label class="field">
+          <span>Ingredienser <small class="muted">(én pr. linje)</small></span>
+          <textarea
+            id="field-ingredients"
+            rows="8"
+            placeholder="400 g spaghetti&#10;150 g guanciale&#10;3 æggeblommer&#10;60 g pecorino"
+          ></textarea>
+        </label>
+
+        <label class="field">
+          <span>Fremgangsmåde <small class="muted">(ét trin pr. linje)</small></span>
+          <textarea
+            id="field-steps"
+            rows="8"
+            placeholder="Kog pasta i rigeligt saltet vand.&#10;Steg guanciale sprød på panden.&#10;Vend pasta med æg, ost og pastavand."
+          ></textarea>
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Noter <small class="muted">(valgfri)</small></span>
+        <textarea id="field-note" rows="2" placeholder="Kort tip, variation eller serveringsforslag"></textarea>
+      </label>
+
+      <p id="editor-error" class="error-banner" role="alert" hidden></p>
+
+      <div class="modal-footer">
+        <button id="btn-editor-cancel" type="button" class="btn btn-secondary">Annuller</button>
+        <button id="btn-save-recipe" type="submit" class="btn btn-primary">Gem opskrift</button>
+      </div>
+    </form>
+  </dialog>
+
+  <section id="print-container" aria-hidden="true"></section>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
